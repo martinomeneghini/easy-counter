@@ -5,57 +5,40 @@ import json
 # CSS personalizzato
 st.markdown("""
     <style>
-    /* Sfondo nero */
     .stApp {
         background-color: #0a0a0a;
     }
-    
-    /* Testo bianco */
     .stApp, .stMarkdown, p, label {
         color: #ffffff !important;
     }
-    
-    /* Titolo arancione */
     h1 {
         color: #ffffff !important;
         font-size: 3rem !important;
         font-weight: 800 !important;
         letter-spacing: -1px;
     }
-    
-    /* Sottotitolo */
     h2, h3 {
         color: #FF6B00 !important;
     }
-    
-    /* Bottone upload */
     .stFileUploader {
         background-color: #1a1a1a !important;
         border: 2px dashed #FF6B00 !important;
         border-radius: 12px !important;
         padding: 20px !important;
     }
-    
-    /* Box successo */
     .stSuccess {
         background-color: #1a1a1a !important;
         border-left: 4px solid #FF6B00 !important;
         color: #FF6B00 !important;
     }
-    
-    /* Box warning */
     .stWarning {
         background-color: #1a1a1a !important;
         border-left: 4px solid #FF6B00 !important;
     }
-
-    /* Checkbox */
     .stCheckbox label {
         color: #FF6B00 !important;
         font-weight: 600 !important;
     }
-
-    /* Card per ogni profilo */
     .profilo-card {
         background-color: #1a1a1a;
         border-left: 3px solid #FF6B00;
@@ -68,7 +51,63 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Intestazione
+# Database utenti salvato in sessione
+if "utenti" not in st.session_state:
+    st.session_state.utenti = {
+        "martino": {"password": "1234", "premium": False},
+        "utente_premium": {"password": "1234", "premium": True},
+    }
+utenti = st.session_state.utenti
+
+# Inizializza sessione
+if "loggato" not in st.session_state:
+    st.session_state.loggato = False
+if "username" not in st.session_state:
+    st.session_state.username = ""
+
+# Schermata di login e registrazione
+if not st.session_state.loggato:
+    st.markdown("<h1>Easy <span style='background-color:#FF6B00; color:#000000; padding:2px 14px; border-radius:8px;'>Counter</span></h1>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#aaaaaa;'>Scopri chi non ti segue su Instagram</p>", unsafe_allow_html=True)
+    st.markdown("---")
+
+    col_sinistra, col_destra = st.columns(2)
+
+    with col_sinistra:
+        st.markdown("<h3>Accedi</h3>", unsafe_allow_html=True)
+        username = st.text_input("Username", key="login_user")
+        password = st.text_input("Password", type="password", key="login_pass")
+
+        if st.button("Accedi"):
+            if username in utenti and utenti[username]["password"] == password:
+                st.session_state.loggato = True
+                st.session_state.username = username
+                st.rerun()
+            else:
+                st.error("❌ Username o password errati")
+
+    with col_destra:
+        st.markdown("<h3>Registrati</h3>", unsafe_allow_html=True)
+        nuovo_username = st.text_input("Scegli uno username", key="reg_user")
+        nuova_password = st.text_input("Scegli una password", type="password", key="reg_pass")
+        conferma_password = st.text_input("Conferma password", type="password", key="reg_conf")
+
+        if st.button("Crea account"):
+            if nuovo_username == "":
+                st.error("❌ Inserisci uno username")
+            elif nuovo_username in utenti:
+                st.error("❌ Username già esistente")
+            elif nuova_password != conferma_password:
+                st.error("❌ Le password non coincidono")
+            elif len(nuova_password) < 4:
+                st.error("❌ La password deve avere almeno 4 caratteri")
+            else:
+                utenti[nuovo_username] = {"password": nuova_password, "premium": False}
+                st.success("✅ Account creato! Ora accedi")
+
+    st.stop()
+
+# App principale — visibile solo se loggato
 st.markdown("""
     <h1>
         Easy 
@@ -80,7 +119,7 @@ st.markdown("""
         '>Counter</span>
     </h1>
 """, unsafe_allow_html=True)
-st.markdown("<p style='color:#aaaaaa; font-size:1.1rem;'>Scopri chi non ti segue  su Instagram</p>", unsafe_allow_html=True)
+st.markdown("<p style='color:#aaaaaa; font-size:1.1rem;'>Scopri chi non ti segue su Instagram</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 file_caricato = st.file_uploader("📂 Carica il tuo file ZIP di Instagram", type="zip")
@@ -109,19 +148,18 @@ if file_caricato:
             if persona not in followers:
                 non_ti_seguono.append(persona)
 
-        # Statistiche
         st.success("✅ Analisi completata!")
         col1, col2, col3 = st.columns(3)
         col1.metric("Followers", len(followers))
         col2.metric("Following", len(following))
-        col3.metric("Non ti seguono ", len(non_ti_seguono))
+        col3.metric("Non ti seguono", len(non_ti_seguono))
 
         st.markdown("---")
 
-        # Freemium
-        premium = st.checkbox("🔓 Modalità Premium — sblocca tutti i risultati")
+        # Controlla se utente è premium
+        is_premium = utenti[st.session_state.username]["premium"]
 
-        if premium:
+        if is_premium:
             lista_da_mostrare = non_ti_seguono
         else:
             lista_da_mostrare = non_ti_seguono[0:2]
@@ -130,5 +168,5 @@ if file_caricato:
         for persona in lista_da_mostrare:
             st.markdown(f"<div class='profilo-card'>@{persona}</div>", unsafe_allow_html=True)
 
-        if not premium and len(non_ti_seguono) > 2:
-            st.warning(f"🔒 E altri **{len(non_ti_seguono) - 2}** profili nascosti — attiva il Premium per vedere tutti")
+        if not is_premium and len(non_ti_seguono) > 2:
+            st.warning(f"🔒 E altri **{len(non_ti_seguono) - 2}** profili nascosti — passa al Premium per vedere tutti")
